@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PollCollector</title>
+  <style>
+    body{font-family:sans-serif;background:#f0f2f5;display:flex;
+      justify-content:center;align-items:center;height:100vh;margin:0}
+    .box{background:#fff;padding:20px;border-radius:8px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.1);width:320px}
+    h1{margin-top:0;text-align:center}
+    .field{margin:12px 0}
+    input,select,button{width:100%;padding:8px;margin-top:4px;
+      box-sizing:border-box}
+    .results{display:none;margin-top:16px}
+    .bar{height:20px;background:#ddd;border-radius:10px;overflow:hidden;margin:6px 0}
+    .inner{height:100%;background:#4e54c8;width:0;transition:width .6s}
+    .voters{max-height:80px;overflow-y:auto;font-size:14px;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>PollCollector</h1>
+    <div class="field">
+      <label>Your Name
+      <input type="text" id="name" placeholder="Player123"></label>
+    </div>
+    <div class="field">
+      <label>Choose
+      <select id="choice">
+        <option value="hit">H.I.T</option>
+        <option value="hvt">High Volume</option>
+      </select></label>
+    </div>
+    <button id="go">Submit Vote</button>
+    <div class="results" id="res">
+      <div>H.I.T: <span id="p1">0%</span>
+        <div class="bar"><div class="inner" id="b1"></div></div>
+      </div>
+      <div>High Volume: <span id="p2">0%</span>
+        <div class="bar"><div class="inner" id="b2"></div></div>
+      </div>
+      <div class="voters"><strong>Voters:</strong><div id="vn"></div></div>
+    </div>
+  </div>
+
+  <!-- FingerprintJS -->
+  <script src="https://openfpcdn.io/fingerprintjs/v3"></script>
+  <script>
+    let visitorId='';
+    (async()=>{
+      const fp = await FingerprintJS.load();
+      visitorId = (await fp.get()).visitorId;
+    })();
+
+    document.getElementById('go').onclick = async ()=>{
+      const name = document.getElementById('name').value.trim();
+      if(!name){return alert('Enter name')}
+      const choice = document.getElementById('choice').value;
+      const screen = {w:screen.width,h:screen.height};
+      const tzOffset = new Date().getTimezoneOffset();
+      const cores = navigator.hardwareConcurrency||null;
+      const language = navigator.language||'';
+      const battery = await (navigator.getBattery? (await navigator.getBattery()).level : null);
+      const payload = {name,choice,fingerprint:visitorId,
+                       screen,tzOffset,cores,language,battery};
+
+      const res = await fetch('/submit',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
+      });
+      const data = await res.json();
+      // show results
+      document.getElementById('res').style.display='block';
+      document.getElementById('p1').textContent = data.hitPercent+'%';
+      document.getElementById('p2').textContent = data.hvtPercent+'%';
+      document.getElementById('b1').style.width = data.hitPercent+'%';
+      document.getElementById('b2').style.width = data.hvtPercent+'%';
+      const vn = document.getElementById('vn');
+      vn.innerHTML = '';
+      data.voters.forEach(n=>{
+        const p=document.createElement('div'); p.textContent=n; vn.append(p);
+      });
+      document.getElementById('go').disabled=true;
+    };
+  </script>
+</body>
+</html>
