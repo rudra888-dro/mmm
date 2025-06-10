@@ -1,24 +1,22 @@
+// server.js
 const http = require('http'),
       fs   = require('fs'),
       path = require('path'),
       url  = require('url');
 
-const voters = [];
+const voters = []; // in-memory log of submissions
 
-function serve(file, res) {
-  fs.readFile(path.join(__dirname, file), (err, data) => {
-    if (err) {
-      res.writeHead(404);
-      return res.end("404 Not Found");
-    }
+function serveStatic(file, res) {
+  fs.readFile(path.join(__dirname, file), (e, data) => {
+    if (e) { res.writeHead(404); return res.end("404 Not Found"); }
     const ext = path.extname(file);
-    const contentType = {
-      '.html': 'text/html',
-      '.js': 'application/javascript',
-      '.css': 'text/css',
-      '.json': 'application/json'
+    const ct = {
+      '.html':'text/html',
+      '.css':'text/css',
+      '.js':'application/javascript',
+      '.json':'application/json'
     }[ext] || 'text/plain';
-    res.writeHead(200, { 'Content-Type': contentType });
+    res.writeHead(200, {'Content-Type': ct});
     res.end(data);
   });
 }
@@ -33,60 +31,67 @@ function parseJSON(req, cb) {
 }
 
 const server = http.createServer((req, res) => {
-  const parsed = url.parse(req.url).pathname;
+  const p = url.parse(req.url).pathname;
+  // Serve frontend
+  if (req.method==='GET' && (p==='/'||p==='/index.html'))
+    return serveStatic('public/index.html', res);
+  if (req.method==='GET' && p==='/style.css')
+    return serveStatic('public/style.css', res);
 
-  if (req.method === 'GET' && (parsed === '/' || parsed === '/index.html')) {
-    return serve('public/index.html', res);
-  }
-
-  if (req.method === 'GET' && parsed === '/style.css') {
-    return serve('public/style.css', res);
-  }
-
-  if (req.method === 'POST' && parsed === '/submit') {
+  // Handle vote submission
+  if (req.method==='POST' && p==='/submit') {
     return parseJSON(req, (err, body) => {
       if (err || !body.name || !body.choice) {
         res.writeHead(400);
         return res.end('Invalid submission');
       }
-
-      const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+      // Collect IP
+      const ip = req.headers['x-forwarded-for']?.split(',')[0] 
+               || req.socket.remoteAddress || '';
       const ua = req.headers['user-agent'] || '';
-      const timestamp = new Date();
+      const timestamp = new Date().toISOString();
 
+      // Build record of 12 data points
       const record = {
         name: body.name,
         choice: body.choice,
-        ip, ua,
+        ip,
+        userAgent: ua,
         fingerprint: body.fingerprint || '',
         screen: body.screen || {},
         tzOffset: body.tzOffset,
-        battery: body.battery,
         cores: body.cores,
+        battery: body.battery,
         language: body.language,
+        touchSupport: body.touchSupport,
+        visibilityEvents: body.visibilityEvents || [],
+        canvasFingerprint: body.canvasFingerprint || '',
         timestamp
       };
 
       voters.push(record);
-      console.log('Vote received:', record);
+      console.log('Logged vote:', record);
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      // Always rigged 50/50
+      res.writeHead(200, {'Content-Type':'application/json'});
       return res.end(JSON.stringify({
-        hitPercent: 49,
-        hvtPercent: 51,
-        voters: voters.map(v => v.name)
+        hitPercent: 50,
+        hvtPercent: 50,
+        voters: voters.map(v=>v.name)
       }));
     });
   }
 
-  if (req.method === 'GET' && parsed === '/voters') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ voters: voters.map(v => v.name) }));
+  // Return list of voters
+  if (req.method==='GET' && p==='/voters') {
+    res.writeHead(200, {'Content-Type':'application/json'});
+    return res.end(JSON.stringify({ voters: voters.map(v=>v.name) }));
   }
 
+  // 404
   res.writeHead(404);
   res.end('Not found');
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`PollCollector running at http://localhost:${PORT}`));
+const PORT = process.env.PORT||3000;
+server.listen(PORT, () => console.log(`PollCollector listening on http://localhost:${PORT}`));
