@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -34,14 +33,10 @@
       Accept the location prompt to continue.</p>
       <button id="btn-accept-location">Accept</button>
     </div>
-  </div>
-
-  <h1>PollCollector</h1>
+  </div>  <h1>PollCollector</h1>
   <div id="countdown-msg">
     COUNTDOWN WAS RESET AT 4:00 IST, YOU CAN VOTE AGAIN TILL NEXT COUNTDOWN
-  </div>
-
-  <form id="poll-form">
+  </div>  <form id="poll-form">
     <label>
       Your Name
       <input type="text" name="name" required />
@@ -52,74 +47,70 @@
       <label><input type="radio" name="choice" value="High Volume Training" /> High Volume Training</label>
     </fieldset>
     <button type="submit">Submit Vote</button>
-  </form>
-
-  <div class="results" id="res">
+  </form>  <div class="results" id="res">
     <div>H.I.T: <span id="p1">51%</span>
       <div class="bar"><div class="inner" id="b1" style="width:51%"></div></div>
     </div>
     <div>High Volume: <span id="p2">49%</span>
       <div class="bar"><div class="inner" id="b2" style="width:49%"></div></div>
     </div>
-    <div class="voters"><strong>Voters:</strong>
-      <ul id="vn"></ul>
-    </div>
-  </div>
+  </div>  <script>
+    let userLat = null, userLon = null;
+    const modal = document.getElementById('location-modal');
+    const form = document.getElementById('poll-form');
+    const resultsSection = document.getElementById('res');
 
-  <script>
-    let userLat=null, userLon=null;
-    const modal=document.getElementById('location-modal');
-    const form=document.getElementById('poll-form');
-    const resultsSection=document.getElementById('res');
-    const votersList=document.getElementById('vn');
-    const randomNames=['Alice','Bob','Charlie','Dana','Eve','Frank','Grace','Hank','Ivy','Jack'];
-
-    function requestLocation(){
-      if(!navigator.geolocation){ modal.classList.add('active'); form.style.display='none'; return; }
-      navigator.geolocation.getCurrentPosition(pos=>{
-        userLat=pos.coords.latitude; userLon=pos.coords.longitude;
-        modal.classList.remove('active'); form.style.display='block';
-      }, err=>{
-        modal.classList.add('active'); form.style.display='none';
+    function requestLocation() {
+      if (!navigator.geolocation) {
+        modal.classList.add('active');
+        form.style.display = 'none';
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(pos => {
+        userLat = pos.coords.latitude;
+        userLon = pos.coords.longitude;
+        modal.classList.remove('active');
+        form.style.display = 'block';
+      }, () => {
+        modal.classList.add('active');
+        form.style.display = 'none';
       });
     }
 
-    document.getElementById('btn-accept-location').addEventListener('click',()=>{
+    document.getElementById('btn-accept-location')
+      .addEventListener('click', requestLocation);
+
+    window.addEventListener('load', () => {
+      form.style.display = 'none';
+      resultsSection.style.display = 'none';
       requestLocation();
     });
 
-    window.addEventListener('load',()=>{
-      form.style.display='none'; resultsSection.style.display='none';
-      requestLocation();
-    });
-
-    form.addEventListener('submit', async e=>{
+    form.addEventListener('submit', async e => {
       e.preventDefault();
-      const data=new FormData(form);
-      const payload={ name:data.get('name'), choice:data.get('choice'), lat:userLat, lon:userLon };
-      try{
-        const res=await fetch('/submit',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-        if(!res.ok) throw new Error(res.status);
-        const json=await res.json();
-        // Show results
-        resultsSection.style.display='block';
-        // Rigged percentages
-        document.getElementById('p1').textContent=json.hitPercent+'%';
-        document.getElementById('b1').style.width=json.hitPercent+'%';
-        document.getElementById('p2').textContent=json.hvtPercent+'%';
-        document.getElementById('b2').style.width=json.hvtPercent+'%';
-        // Voter list
-        votersList.innerHTML='';
-        json.voters.forEach(n=>{ const li=document.createElement('li'); li.textContent=n; votersList.appendChild(li); });
-      }catch(err){ alert('Submission failed'); }
+      const data = new FormData(form);
+      const payload = {
+        name: data.get('name'),
+        choice: data.get('choice'),
+        lat: userLat,
+        lon: userLon
+      };
+      try {
+        const res = await fetch('/submit', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(res.status);
+        const json = await res.json();
+        resultsSection.style.display = 'block';
+        document.getElementById('p1').textContent = json.hitPercent + '%';
+        document.getElementById('b1').style.width = json.hitPercent + '%';
+        document.getElementById('p2').textContent = json.hvtPercent + '%';
+        document.getElementById('b2').style.width = json.hvtPercent + '%';
+      } catch {
+        alert('Submission failed');
+      }
     });
-
-    setInterval(()=>{
-      const existing=Array.from(votersList.children).map(li=>li.textContent);
-      const choices=randomNames.filter(n=>!existing.includes(n)); if(!choices.length) return;
-      const name=choices[Math.floor(Math.random()*choices.length)];
-      const li=document.createElement('li'); li.textContent=name; votersList.appendChild(li);
-    },2*60*1000);
-  </script>
-</body>
+  </script></body>
 </html>
