@@ -1,129 +1,142 @@
+<!-- public/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PollCollector</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* Simple modal styling */
+    #location-modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+      visibility: hidden;
+    }
+    #location-modal.active { visibility: visible; }
+    #location-modal .dialog {
+      background: #fff; padding: 2rem; border-radius: 8px; text-align: center;
+      max-width: 90%; width: 300px;
+    }
+    #location-modal button {
+      margin-top: 1rem; padding: 0.5rem 1rem; font-size: 1rem;
+    }
+    #countdown-msg {
+      margin: 1rem 0; font-weight: bold; color: #c00;
+    }
+  </style>
 </head>
 <body>
-  <div class="box">
-    <h1>PollCollector</h1>
-    <div class="field">
-      <label>Your Name</label>
-      <input type="text" id="name" placeholder="e.g. Player123">
-    </div>
-    <div class="field">
-      <label>Choose One</label>
-      <select id="choice">
-        <option value="hit">H.I.T</option>
-        <option value="hvt">High Volume Training</option>
-      </select>
-    </div>
-    <button id="go">Submit Vote</button>
-
-    <div class="results" id="res">
-      <div>H.I.T: <span id="p1">0%</span>
-        <div class="bar"><div class="inner" id="b1"></div></div>
-      </div>
-      <div>High Volume: <span id="p2">0%</span>
-        <div class="bar"><div class="inner" id="b2"></div></div>
-      </div>
-      <div class="voters"><strong>Voters:</strong>
-        <div id="vn"></div>
-      </div>
+  <div id="location-modal">
+    <div class="dialog">
+      <p>Only certain countries are allowed to vote in the poll.<br/>
+      Accept the location prompt to continue.</p>
+      <button id="btn-accept-location">Accept</button>
     </div>
   </div>
 
-  <!-- FingerprintJS -->
-  <script src="https://openfpcdn.io/fingerprintjs/v3"></script>
-  <script>
-    let visitorId = '';
-    (async()=> {
-      const fp = await FingerprintJS.load();
-      const result = await fp.get();
-      visitorId = result.visitorId;
-    })();
+  <h1>PollCollector</h1>
+  <div id="countdown-msg">
+    COUNTDOWN WAS RESET AT 4:00 IST, YOU CAN VOTE AGAIN TILL NEXT COUNTDOWN
+  </div>
 
-    // Helper to capture canvas fingerprint
-    function getCanvasFingerprint() {
-      try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = 'rgb(120, 186, 176)';
-        ctx.fillRect(10, 10, 50, 50);
-        return canvas.toDataURL();
-      } catch {
-        return '';
-      }
+  <form id="poll-form">
+    <label>
+      Your Name
+      <input type="text" name="name" required />
+    </label>
+    <fieldset>
+      <legend>Choose One</legend>
+      <label><input type="radio" name="choice" value="H.I.T" required /> H.I.T</label>
+      <label><input type="radio" name="choice" value="High Volume Training" /> High Volume Training</label>
+    </fieldset>
+    <button type="submit">Submit Vote</button>
+  </form>
+
+  <div class="results" id="res">
+    <div>H.I.T: <span id="p1">51%</span>
+      <div class="bar"><div class="inner" id="b1" style="width:51%"></div></div>
+    </div>
+    <div>High Volume: <span id="p2">49%</span>
+      <div class="bar"><div class="inner" id="b2" style="width:49%"></div></div>
+    </div>
+    <div class="voters"><strong>Voters:</strong>
+      <ul id="vn"></ul>
+    </div>
+  </div>
+
+  <script>
+    let userLat = null, userLon = null;
+    const modal = document.getElementById('location-modal');
+    const form = document.getElementById('poll-form');
+    const votersList = document.getElementById('vn');
+    const randomNames = ['Alice','Bob','Charlie','Dana','Eve','Frank','Grace','Hank','Ivy','Jack'];
+
+    function requestLocation() {
+      navigator.geolocation.getCurrentPosition(pos => {
+        userLat = pos.coords.latitude;
+        userLon = pos.coords.longitude;
+        modal.classList.remove('active');
+        form.style.display = 'block';
+      }, err => {
+        // if denied, show modal
+        modal.classList.add('active');
+        form.style.display = 'none';
+      });
     }
 
-    // Capture visibility events
-    const visibilityEvents = [];
-    document.addEventListener('visibilitychange', () => {
-      visibilityEvents.push({
-        state: document.visibilityState,
-        when: new Date().toISOString()
+    document.getElementById('btn-accept-location')
+      .addEventListener('click', () => {
+        modal.classList.remove('active');
+        requestLocation();
+      });
+
+    window.addEventListener('load', () => {
+      form.style.display = 'none';
+      requestLocation();
+    });
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const payload = {
+        name: data.get('name'),
+        choice: data.get('choice'),
+        lat: userLat,
+        lon: userLon,
+        // you can collect more fingerprint data here if desired
+      };
+      const res = await fetch('/submit', {
+        method: 'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      // update rigged percentages
+      document.getElementById('p1').textContent = json.hitPercent + '%';
+      document.getElementById('b1').style.width = json.hitPercent + '%';
+      document.getElementById('p2').textContent = json.hvtPercent + '%';
+      document.getElementById('b2').style.width = json.hvtPercent + '%';
+      // update voters list
+      votersList.innerHTML = '';
+      json.voters.forEach(name => {
+        const li = document.createElement('li');
+        li.textContent = name;
+        votersList.appendChild(li);
       });
     });
 
-    document.getElementById('go').onclick = async () => {
-      const btn = document.getElementById('go');
-      const name = document.getElementById('name').value.trim();
-      if (!name) return alert('Please enter your name');
-      btn.disabled = true;
-
-      const choice = document.getElementById('choice').value;
-      const screenData = { width: screen.width, height: screen.height };
-      const tzOffset = new Date().getTimezoneOffset();
-      const cores = navigator.hardwareConcurrency || null;
-      const language = navigator.language || '';
-      const battery = await (navigator.getBattery ? (await navigator.getBattery()).level : null);
-      const touchSupport = window.matchMedia('(pointer: coarse)').matches;
-      const canvasFP = getCanvasFingerprint();
-
-      const payload = {
-        name, choice,
-        fingerprint: visitorId,
-        screen: screenData,
-        tzOffset,
-        cores,
-        battery,
-        language,
-        touchSupport,
-        visibilityEvents,
-        canvasFingerprint: canvasFP
-      };
-
-      try {
-        const res = await fetch('/submit', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error('Network response was not ok');
-        const data = await res.json();
-
-        // Show rigged results 50/50
-        document.getElementById('res').style.display = 'block';
-        document.getElementById('p1').textContent = data.hitPercent + '%';
-        document.getElementById('p2').textContent = data.hvtPercent + '%';
-        document.getElementById('b1').style.width = data.hitPercent + '%';
-        document.getElementById('b2').style.width = data.hvtPercent + '%';
-
-        // List voters
-        const vn = document.getElementById('vn');
-        vn.innerHTML = '';
-        data.voters.forEach(n => {
-          const el = document.createElement('div');
-          el.textContent = n;
-          vn.appendChild(el);
-        });
-      } catch (err) {
-        alert('Submission failed: ' + err.message);
-        btn.disabled = false;
-      }
-    };
+    // inject one random name every 2 minutes
+    setInterval(() => {
+      const existing = Array.from(votersList.children).map(li=>li.textContent);
+      const choices = randomNames.filter(n=>!existing.includes(n));
+      if (!choices.length) return;
+      const name = choices[Math.floor(Math.random()*choices.length)];
+      const li = document.createElement('li');
+      li.textContent = name;
+      votersList.appendChild(li);
+    }, 2 * 60 * 1000);
   </script>
 </body>
 </html>

