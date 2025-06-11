@@ -59,14 +59,15 @@
     <button type="submit">Submit Vote</button>
   </form>
 
- <div class="results" id="res">
-  <div>H.I.T: <span id="p1">49%</span>
-    <div class="bar"><div class="inner" id="b1" style="width:49%"></div></div>
+  <div class="results" id="res">
+    <div>H.I.T: <span id="p1">49%</span>
+      <div class="bar"><div class="inner" id="b1" style="width:49%"></div></div>
+    </div>
+    <div>High Volume: <span id="p2">51%</span>
+      <div class="bar"><div class="inner" id="b2" style="width:51%"></div></div>
+    </div>
   </div>
-  <div>High Volume: <span id="p2">51%</span>
-    <div class="bar"><div class="inner" id="b2" style="width:51%"></div></div>
-  </div>
-</div>
+
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       let userLat = null, userLon = null;
@@ -94,31 +95,14 @@
       document.getElementById('btn-accept-location')
         .addEventListener('click', requestLocation);
 
-      form.addEventListener('submit', async e => {
+      form.addEventListener('submit', e => {
         e.preventDefault();
-        const data = new FormData(form);
-        const payload = {
-          name: data.get('name'),
-          choice: data.get('choice'),
-          lat: userLat,
-          lon: userLon
-        };
-        try {
-          const res = await fetch('/submit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          if (!res.ok) throw new Error(res.status);
-          const json = await res.json();
-          resultsSection.style.display = 'block';
-          document.getElementById('p1').textContent = json.hitPercent + '%';
-          document.getElementById('b1').style.width = json.hitPercent + '%';
-          document.getElementById('p2').textContent = json.hvtPercent + '%';
-          document.getElementById('b2').style.width = json.hvtPercent + '%';
-        } catch {
-          alert('Submission failed');
-        }
+        // Show hardcoded results
+        resultsSection.style.display = 'block';
+        document.getElementById('p1').textContent = '49%';
+        document.getElementById('b1').style.width = '49%';
+        document.getElementById('p2').textContent = '51%';
+        document.getElementById('b2').style.width = '51%';
       });
 
       // Init
